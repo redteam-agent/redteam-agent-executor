@@ -14,7 +14,6 @@ import type {
   AgentRun,
   AnyAgentEvent,
   ChainStep,
-  CommandStatus,
   ConnectionStatus,
   PipelineStage,
   Session,
@@ -194,7 +193,7 @@ export const useAgentStore = create<AgentState>()(
             }
             break;
 
-          case 'command':
+          case 'command': {
             // Update chain step with command
             state.addTerminalLine({
               type: 'command',
@@ -213,6 +212,7 @@ export const useAgentStore = create<AgentState>()(
               status: event.status,
             });
             break;
+          }
 
           case 'output':
             state.addTerminalLine({
