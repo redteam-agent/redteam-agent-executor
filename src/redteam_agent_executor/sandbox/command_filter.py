@@ -10,6 +10,26 @@ import shlex
 from dataclasses import dataclass
 from enum import Enum
 
+try:
+    import structlog
+    logger = structlog.get_logger(__name__)
+    _use_structlog = True
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+    _use_structlog = False
+
+
+def _log(level: str, event: str, **kwargs) -> None:
+    """Log with structured data, compatible with both structlog and stdlib."""
+    if _use_structlog:
+        getattr(logger, level)(event, **kwargs)
+    else:
+        # For stdlib logging, format kwargs into the message
+        extra_info = " ".join(f"{k}={v}" for k, v in kwargs.items())
+        msg = f"{event} {extra_info}".strip()
+        getattr(logger, level)(msg)
+
 
 class ValidationResult(Enum):
     """Result of command validation."""
@@ -162,14 +182,30 @@ class CommandFilter:
         """
         command = command.strip()
 
+        # Log all validation attempts for audit trail
+        _log(
+            "info",
+            "command_validation_attempt",
+            command=command[:100],  # Truncate for logging
+            target_url=target_url,
+        )
+
         # Check for blocked patterns first
         for pattern in self.blocked_patterns:
             if pattern.search(command):
-                return CommandValidation(
+                validation = CommandValidation(
                     result=ValidationResult.BLOCKED,
                     command=command,
                     reason=f"Blocked pattern detected: {pattern.pattern}",
                 )
+                _log(
+                    "warning",
+                    "command_blocked",
+                    command=command[:100],
+                    reason=validation.reason,
+                    pattern=pattern.pattern,
+                )
+                return validation
 
         # Check if command matches allowed patterns
         allowed = False
@@ -179,24 +215,45 @@ class CommandFilter:
                 break
 
         if not allowed:
-            return CommandValidation(
+            validation = CommandValidation(
                 result=ValidationResult.BLOCKED,
                 command=command,
                 reason="Command does not match any allowed pattern",
             )
+            _log(
+                "warning",
+                "command_blocked",
+                command=command[:100],
+                reason=validation.reason,
+            )
+            return validation
 
         # Validate target URL if required
         if target_url and self.allowed_domains:
             for pattern in self.target_required:
                 if pattern.match(command):
                     if not self._validate_target_domain(command, target_url):
-                        return CommandValidation(
+                        validation = CommandValidation(
                             result=ValidationResult.BLOCKED,
                             command=command,
                             reason="Command targets a domain not in the allowed list",
                         )
+                        _log(
+                            "warning",
+                            "command_blocked",
+                            command=command[:100],
+                            reason=validation.reason,
+                            target_url=target_url,
+                            allowed_domains=str(self.allowed_domains),
+                        )
+                        return validation
                     break
 
+        _log(
+            "info",
+            "command_allowed",
+            command=command[:100],
+        )
         return CommandValidation(
             result=ValidationResult.ALLOWED,
             command=command,
