@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "redteam-agent-executor"
+version = "0.1.0"
+description = "Command execution service for RedTeam Agent platform"
+authors = ["RedTeam Agent <team@redteam-agent.dev>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "redteam_agent_executor", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.109"
+uvicorn = {extras = ["standard"], version = "^0.27"}
+pydantic = "^2.5"
+pydantic-settings = "^2.1"
+httpx = "^0.26"
+sse-starlette = "^2.0"
+structlog = "^24.1"
+google-cloud-run = "^0.10"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+pytest-asyncio = "^0.23"
+mypy = "^1.8"
+ruff = "^0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
